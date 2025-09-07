@@ -7,7 +7,7 @@
 
 ### 管理页面
 
-![](./img/webshell_img_1.jpg)
+![](./img/webshell_bashboard.png)
 
 ### 创建修改
 
@@ -17,10 +17,20 @@
 
 ![](./img/webshell_img_3.jpg)
 
+## 部署
+
+```bash
+docker compose up
+```
+
+访问 http://localhost:8000/
+
 ## 联系方式
 
-谢谢你的关注~  
-![](./img/wechat.jpg)
+<div align="center">
+  <img src="./img/wechat.jpg" alt="Logo" style="width: 200px; height: auto;">
+  <p>谢谢你的关注~  </p>
+</div>
 
 ## TODO
 
@@ -30,9 +40,9 @@
 
 ## 参考项目
 
++ [xiecat/wsm](https://github.com/xiecat/wsm) [@Go0p](https://github.com/Go0p)
 + [veo/Vshell](https://github.com/veo)
 + [Rubby2001/Rshell](https://github.com/Rubby2001/Rshell---A-Cross-Platform-C2)
-+ [xiecat/wsm](https://github.com/xiecat/wsm)
 
 ## 免责申明
 

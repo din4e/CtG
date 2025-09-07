@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  ctg:
+    image: din4e/ctg:v0.0.1
+    container_name: ctg-service
+    ports:
+      - "8000:8000"  # 前端开发服务器端口
+    volumes:
+      - ctg_data:/app/database
+      - ctg_logs:/app/logs
+    environment:
+      - GIN_MODE=release
+      - GIN_LOG_LEVEL=info
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  ctg_data:
+  ctg_logs:
