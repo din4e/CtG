@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebShell 目录</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .file-list {
+            list-style: none;
+        }
+        .file-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .file-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        .file-item a {
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+        .file-item .description {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .file-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .copy-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+        .copy-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #cce7ff;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            color: #1976D2;
+            font-weight: 500;
+        }
+        .info-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .warning h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        .warning p {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 WebShell 目录</h1>
+        <p class="subtitle">测试用 WebShell 文件列表</p>
+        
+        <div class="warning">
+            <h3>⚠️ 警告</h3>
+            <p>这些文件仅供测试使用。请勿在生产环境中使用。</p>
+        </div>
+
+        <div class="info-box">
+            <h3>🔑 连接信息</h3>
+            <div class="info-item">
+                <span class="info-label">默认密码：</span>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="info-value">rebeyond</span>
+                    <button class="copy-btn" onclick="copyText('rebeyond', '密码')">📋 复制</button>
+                </div>
+            </div>
+            <div class="info-item">
+                <span class="info-label">PHP 环境：</span>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="info-value">http://localhost:20000/webshell/</span>
+                    <button class="copy-btn" onclick="copyText('http://localhost:20000/webshell/', 'URL')">📋 复制</button>
+                </div>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Tomcat 环境：</span>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="info-value">http://localhost:20001/webshell/</span>
+                    <button class="copy-btn" onclick="copyText('http://localhost:20001/webshell/', 'URL')">📋 复制</button>
+                </div>
+            </div>
+        </div>
+
+        <ul class="file-list">
+            <li class="file-item">
+                <div class="file-header">
+                    <a href="behinder_3.0_default.php">behinder_3.0_default.php</a>
+                    <div class="copy-buttons">
+                        <button class="copy-btn" onclick="copyText('behinder_3.0_default.php', '文件名')">📋 文件名</button>
+                        <button class="copy-btn" onclick="copyText(getFullUrl('behinder_3.0_default.php'), 'URL')">🔗 URL</button>
+                    </div>
+                </div>
+                <div class="description">PHP WebShell - Behinder 3.0 默认密钥 (rebeyond)</div>
+            </li>
+            <li class="file-item">
+                <div class="file-header">
+                    <a href="behinder_3.0_default.jsp">behinder_3.0_default.jsp</a>
+                    <div class="copy-buttons">
+                        <button class="copy-btn" onclick="copyText('behinder_3.0_default.jsp', '文件名')">📋 文件名</button>
+                        <button class="copy-btn" onclick="copyText(getFullUrl('behinder_3.0_default.jsp'), 'URL')">🔗 URL</button>
+                    </div>
+                </div>
+                <div class="description">JSP WebShell - Behinder 3.0 默认密钥</div>
+            </li>
+            <li class="file-item">
+                <div class="file-header">
+                    <a href="behinder_3.0_default.jspx">behinder_3.0_default.jspx</a>
+                    <div class="copy-buttons">
+                        <button class="copy-btn" onclick="copyText('behinder_3.0_default.jspx', '文件名')">📋 文件名</button>
+                        <button class="copy-btn" onclick="copyText(getFullUrl('behinder_3.0_default.jspx'), 'URL')">🔗 URL</button>
+                    </div>
+                </div>
+                <div class="description">JSPX WebShell - Behinder 3.0 默认密钥</div>
+            </li>
+            <li class="file-item">
+                <div class="file-header">
+                    <a href="behinder_3.0_default_java9.jsp">behinder_3.0_default_java9.jsp</a>
+                    <div class="copy-buttons">
+                        <button class="copy-btn" onclick="copyText('behinder_3.0_default_java9.jsp', '文件名')">📋 文件名</button>
+                        <button class="copy-btn" onclick="copyText(getFullUrl('behinder_3.0_default_java9.jsp'), 'URL')">🔗 URL</button>
+                    </div>
+                </div>
+                <div class="description">JSP WebShell - Behinder 3.0 (Java 9+)</div>
+            </li>
+            <li class="file-item">
+                <div class="file-header">
+                    <a href="behinder_3.0_default.asp">behinder_3.0_default.asp</a>
+                    <div class="copy-buttons">
+                        <button class="copy-btn" onclick="copyText('behinder_3.0_default.asp', '文件名')">📋 文件名</button>
+                        <button class="copy-btn" onclick="copyText(getFullUrl('behinder_3.0_default.asp'), 'URL')">🔗 URL</button>
+                    </div>
+                </div>
+                <div class="description">ASP WebShell - Behinder 3.0 默认密钥</div>
+            </li>
+            <li class="file-item">
+                <div class="file-header">
+                    <a href="behinder_3.0_default.aspx">behinder_3.0_default.aspx</a>
+                    <div class="copy-buttons">
+                        <button class="copy-btn" onclick="copyText('behinder_3.0_default.aspx', '文件名')">📋 文件名</button>
+                        <button class="copy-btn" onclick="copyText(getFullUrl('behinder_3.0_default.aspx'), 'URL')">🔗 URL</button>
+                    </div>
+                </div>
+                <div class="description">ASPX WebShell - Behinder 3.0 默认密钥</div>
+            </li>
+        </ul>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="/" style="color: #667eea; text-decoration: none; font-size: 1.1em;">← 返回首页</a>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        function copyText(text, label) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`✅ ${label}已复制: ${text}`);
+            }).catch(err => {
+                // 降级方案：使用传统方式复制
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(`✅ ${label}已复制: ${text}`);
+                } catch (e) {
+                    showToast('❌ 复制失败');
+                }
+                document.body.removeChild(textarea);
+            });
+        }
+
+        function getFullUrl(filename) {
+            return window.location.origin + window.location.pathname + filename;
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,327 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Linux 虚拟机 - PHP 和 Tomcat 环境
+  config.vm.define "linux" do |linux|
+    linux.vm.box = "ubuntu/focal64"
+    linux.vm.hostname = "cyberrange-linux"
+    
+    # 网络配置
+    linux.vm.network "private_network", ip: "192.168.56.10"
+    linux.vm.network "forwarded_port", guest: 80, host: 20020, host_ip: "127.0.0.1"
+    linux.vm.network "forwarded_port", guest: 8080, host: 20021, host_ip: "127.0.0.1"
+    
+    # 虚拟机资源配置
+    linux.vm.provider "virtualbox" do |vb|
+      vb.name = "cyberrange-linux"
+      vb.memory = "2048"
+      vb.cpus = 2
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+    end
+    
+    # 同步文件夹 - 使用create选项确保目录存在
+    linux.vm.synced_folder "./webshell", "/tmp/webshell", 
+      create: true,
+      mount_options: ["dmode=755,fmode=644"]
+    linux.vm.synced_folder "./html", "/tmp/html", 
+      create: true,
+      mount_options: ["dmode=755,fmode=644"]
+    linux.vm.synced_folder "./tomcat-webapps/ROOT", "/tmp/tomcat-root", 
+      create: true,
+      mount_options: ["dmode=755,fmode=644"]
+    
+    # 安装和配置脚本
+    linux.vm.provision "shell", inline: <<-SHELL
+      set -e
+      
+      echo "========================================"
+      echo "开始配置 Linux 靶场环境"
+      echo "========================================"
+      
+      # 更新系统
+      echo "[1/6] 更新系统软件包..."
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get upgrade -y -qq
+      
+      # 安装 Apache 和 PHP
+      echo "[2/6] 安装 Apache 和 PHP 8.x..."
+      apt-get install -y -qq apache2 php libapache2-mod-php php-cli php-common php-mbstring php-xml php-curl
+      
+      # 配置 Apache
+      echo "[3/6] 配置 Apache..."
+      a2enmod rewrite
+      a2enmod headers
+      
+      # 复制HTML文件到Apache根目录
+      cp -r /tmp/html/* /var/www/html/ 2>/dev/null || true
+      cp -r /tmp/webshell /var/www/html/ 2>/dev/null || true
+      
+      # 配置Apache允许.htaccess
+      cat > /etc/apache2/sites-available/000-default.conf <<EOF
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+    
+    <Directory /var/www/html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+      
+      systemctl enable apache2
+      systemctl restart apache2
+      
+      # 安装 Java
+      echo "[4/6] 安装 Java JDK 11..."
+      apt-get install -y -qq openjdk-11-jdk wget
+      
+      # 下载并安装 Tomcat 9
+      echo "[5/6] 下载并安装 Tomcat 9..."
+      TOMCAT_VERSION=9.0.65
+      
+      if [ ! -d "/opt/tomcat" ]; then
+        cd /opt
+        echo "正在下载 Tomcat ${TOMCAT_VERSION}..."
+        wget -q --show-progress https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz || {
+          echo "官方源下载失败，尝试使用镜像..."
+          wget -q --show-progress https://mirrors.tuna.tsinghua.edu.cn/apache/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
+        }
+        
+        echo "正在解压 Tomcat..."
+        tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz
+        mv apache-tomcat-${TOMCAT_VERSION} tomcat
+        rm apache-tomcat-${TOMCAT_VERSION}.tar.gz
+        
+        # 创建 tomcat 用户
+        if ! id -u tomcat > /dev/null 2>&1; then
+          useradd -r -s /bin/false tomcat
+        fi
+        
+        # 复制Tomcat应用文件
+        cp -r /tmp/tomcat-root/* /opt/tomcat/webapps/ROOT/ 2>/dev/null || true
+        cp -r /tmp/webshell /opt/tomcat/webapps/ROOT/ 2>/dev/null || true
+        
+        chown -R tomcat:tomcat /opt/tomcat
+        
+        # 配置 Tomcat 服务
+        cat > /etc/systemd/system/tomcat.service <<EOF
+[Unit]
+Description=Apache Tomcat 9
+After=network.target
+
+[Service]
+Type=forking
+User=tomcat
+Group=tomcat
+Environment="JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64"
+Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+Environment="CATALINA_HOME=/opt/tomcat"
+Environment="CATALINA_BASE=/opt/tomcat"
+Environment="CATALINA_OPTS=-Xms256m -Xmx512m -XX:+UseParallelGC"
+ExecStart=/opt/tomcat/bin/startup.sh
+ExecStop=/opt/tomcat/bin/shutdown.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        
+        systemctl daemon-reload
+        systemctl enable tomcat
+        systemctl start tomcat
+      else
+        echo "Tomcat 已安装，跳过安装步骤"
+        # 仍然复制文件
+        cp -r /tmp/tomcat-root/* /opt/tomcat/webapps/ROOT/ 2>/dev/null || true
+        cp -r /tmp/webshell /opt/tomcat/webapps/ROOT/ 2>/dev/null || true
+        chown -R tomcat:tomcat /opt/tomcat/webapps
+        systemctl restart tomcat
+      fi
+      
+      # 设置权限
+      echo "[6/6] 设置文件权限..."
+      chown -R www-data:www-data /var/www/html
+      chmod -R 755 /var/www/html
+      
+      # 等待服务启动
+      echo "等待服务启动..."
+      sleep 5
+      
+      # 检查服务状态
+      echo ""
+      echo "========================================"
+      echo "服务状态检查"
+      echo "========================================"
+      
+      if systemctl is-active --quiet apache2; then
+        echo "✓ Apache 运行正常"
+      else
+        echo "✗ Apache 启动失败"
+        systemctl status apache2 --no-pager
+      fi
+      
+      if systemctl is-active --quiet tomcat; then
+        echo "✓ Tomcat 运行正常"
+      else
+        echo "✗ Tomcat 启动失败"
+        systemctl status tomcat --no-pager
+      fi
+      
+      echo ""
+      echo "========================================"
+      echo "Linux 靶场环境配置完成！"
+      echo "========================================"
+      echo "Apache PHP: http://192.168.56.10/ (端口映射: http://localhost:20020/)"
+      echo "Tomcat JSP: http://192.168.56.10:8080/ (端口映射: http://localhost:20021/)"
+      echo "WebShell目录: /webshell/"
+      echo ""
+      echo "PHP版本: $(php -v | head -n 1)"
+      echo "Java版本: $(java -version 2>&1 | head -n 1)"
+      echo "========================================"
+    SHELL
+  end
+
+  # Windows 10 虚拟机 - IIS 环境 (支持 ASP/ASPX)
+  config.vm.define "windows", autostart: false do |windows|
+    windows.vm.box = "gusztavvargadr/windows-10"
+    windows.vm.hostname = "cyberrange-windows"
+    
+    # 网络配置
+    windows.vm.network "private_network", ip: "192.168.56.20"
+    windows.vm.network "forwarded_port", guest: 80, host: 20022, host_ip: "127.0.0.1"
+    windows.vm.network "forwarded_port", guest: 3389, host: 33389, id: "rdp", auto_correct: true
+    
+    # 虚拟机资源配置
+    windows.vm.provider "virtualbox" do |vb|
+      vb.name = "cyberrange-windows"
+      vb.memory = "4096"
+      vb.cpus = 2
+      vb.gui = true
+      vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+      vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
+      vb.customize ["modifyvm", :id, "--vram", "128"]
+    end
+    
+    # 同步文件夹 - webshell 文件
+    windows.vm.synced_folder "./webshell", "C:/vagrant-webshell", 
+      create: true
+    
+    # Windows 配置脚本
+    windows.vm.provision "shell", privileged: true, inline: <<-SHELL
+      Write-Host "========================================"
+      Write-Host "开始配置 Windows IIS 靶场环境"
+      Write-Host "========================================"
+      
+      # 检查IIS是否已安装
+      $iisInstalled = (Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole).State -eq "Enabled"
+      
+      if (-not $iisInstalled) {
+        Write-Host "[1/5] 安装 IIS Web 服务器..."
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServer -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-CommonHttpFeatures -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-HttpErrors -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-ApplicationInit -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-HealthAndDiagnostics -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-HttpLogging -All -NoRestart
+        
+        Write-Host "[2/5] 启用 ASP 和 ASP.NET 支持..."
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-ASP -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-ASPNET -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-ASPNET45 -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-NetFxExtensibility -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-NetFxExtensibility45 -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-ISAPIExtensions -All -NoRestart
+        Enable-WindowsOptionalFeature -Online -FeatureName IIS-ISAPIFilter -All -NoRestart
+        
+        Write-Host "等待功能安装完成..."
+        Start-Sleep -Seconds 10
+      } else {
+        Write-Host "IIS 已安装，跳过安装步骤"
+      }
+      
+      Write-Host "[3/5] 配置 IIS..."
+      Import-Module WebAdministration -ErrorAction SilentlyContinue
+      
+      # 创建应用程序池
+      $appPoolName = "CyberRangeAppPool"
+      if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
+        New-WebAppPool -Name $appPoolName -Force
+        Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name managedRuntimeVersion -Value "v4.0"
+        Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name enable32BitAppOnWin64 -Value $true
+        Write-Host "应用程序池 $appPoolName 创建完成"
+      }
+      
+      Write-Host "[4/5] 复制 WebShell 文件..."
+      # 确保目标目录存在
+      $wwwroot = "C:\inetpub\wwwroot"
+      $webshellDest = "$wwwroot\webshell"
+      
+      if (Test-Path "C:\vagrant-webshell") {
+        if (-not (Test-Path $webshellDest)) {
+          New-Item -ItemType Directory -Path $webshellDest -Force | Out-Null
+        }
+        Copy-Item "C:\vagrant-webshell\*" -Destination $webshellDest -Recurse -Force
+        Write-Host "WebShell 文件复制完成"
+      }
+      
+      # 配置默认网站
+      if (Test-Path "IIS:\Sites\Default Web Site") {
+        Set-ItemProperty "IIS:\Sites\Default Web Site" -Name physicalPath -Value $wwwroot
+        Set-ItemProperty "IIS:\Sites\Default Web Site" -Name applicationPool -Value $appPoolName
+        Write-Host "默认网站配置完成"
+      }
+      
+      # 设置目录权限
+      $acl = Get-Acl $wwwroot
+      $permission = "IIS_IUSRS","FullControl","ContainerInherit,ObjectInherit","None","Allow"
+      $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+      $acl.SetAccessRule($accessRule)
+      Set-Acl $wwwroot $acl
+      
+      Write-Host "[5/5] 重启 IIS..."
+      iisreset /restart | Out-Null
+      
+      # 等待IIS启动
+      Start-Sleep -Seconds 5
+      
+      # 检查服务状态
+      Write-Host ""
+      Write-Host "========================================"
+      Write-Host "服务状态检查"
+      Write-Host "========================================"
+      
+      $w3svc = Get-Service -Name W3SVC
+      if ($w3svc.Status -eq "Running") {
+        Write-Host "✓ IIS (W3SVC) 运行正常"
+      } else {
+        Write-Host "✗ IIS (W3SVC) 未运行"
+      }
+      
+      Write-Host ""
+      Write-Host "========================================"
+      Write-Host "Windows IIS 靶场环境配置完成！"
+      Write-Host "========================================"
+      Write-Host "IIS 访问: http://192.168.56.20/ (端口映射: http://localhost:20022/)"
+      Write-Host "WebShell目录: /webshell/"
+      Write-Host "RDP端口映射: localhost:33389"
+      Write-Host ""
+      Write-Host ".NET Framework版本:"
+      Get-ChildItem 'HKLM:\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP' -Recurse | 
+        Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | 
+        Select-Object -First 1 | 
+        Format-List Version
+      Write-Host "========================================"
+    SHELL
+  end
+end
+

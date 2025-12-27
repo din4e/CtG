@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./img/logo.png" alt="Logo" style="width: 300px; height: auto;">
+  <img src="./img/logo.png" alt="Logo" style="width: 800px; height: auto;">
   <p>👻CtG 是一款基于 Web 的 Shell 管理器。</p>
 </div>
 
@@ -7,7 +7,7 @@
 
 ### 管理页面
 
-![](./img/webshell_bashboard.png)
+![](./img/webshell_bashboard.jpg)
 
 ### 创建修改
 
@@ -16,6 +16,10 @@
 ### 命令执行
 
 ![](./img/webshell_img_3.jpg)
+
+### 其他特效
+
+![](./img/forentend-feature.gif)
 
 ## 部署
 
@@ -35,7 +39,7 @@ docker compose up
 ## TODO
 
 - [ ] Godzilla/Behinder 其余格式的支持（目前只测试Gozilla默认JSP）
-- [ ] 文件管理支持
+- [ ] 文件管理支持，支持文件上传下载
 - [ ] ...
 
 ## 参考项目
